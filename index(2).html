@@ -1,0 +1,2212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Academic Clean Text Reader v136</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --bg:#edf3f1;--panel:#fff;--ink:#17342e;--muted:#627670;
+  --emerald:#0f766e;--emerald2:#0a5b55;--line:#d5e1dd;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+body{display:flex;flex-direction:column;overflow:hidden}
+button,input,select{font:inherit}
+button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12.5px;transition:all .15s ease}
+button:hover:not(:disabled){border-color:var(--emerald);background:#f3faf8}
+button.primary{background:var(--emerald);border-color:var(--emerald);color:#fff}
+button.primary:hover:not(:disabled){background:var(--emerald2)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select{border:1px solid var(--line);border-radius:7px;padding:5px 8px;background:#fff;color:var(--ink)}
+header{height:56px;flex-shrink:0;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 16px;z-index:30}
+.brand{font-weight:750;color:var(--emerald);white-space:nowrap;margin-right:4px}
+.pdf-search-hit{position:absolute;background:rgba(255,220,80,.42);border:1px solid rgba(180,140,0,.45);border-radius:2px;pointer-events:none;z-index:3}
+.pdf-search-hit.active{background:rgba(255,150,70,.58);border-color:rgba(180,70,0,.75)}
+
+.spacer{flex:1}
+#status{font-size:12px;color:var(--muted);max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workspace{display:grid;grid-template-columns:minmax(430px,1.05fr) minmax(470px,.95fr);flex:1;min-height:0}
+.pdf-pane,.reader-pane{min-width:0;min-height:0;background:var(--panel)}
+.pdf-pane{border-right:1px solid var(--line);display:flex;flex-direction:column}
+.pane-title{height:42px;flex-shrink:0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 14px;font-size:13px;font-weight:700;background:#fafcfb}
+#pdfViewer{flex:1;overflow:auto;padding:20px;background:#e8eeec;display:flex;flex-direction:column;align-items:center;gap:18px}
+.pdf-search-bar{display:flex;align-items:center;gap:5px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:8}
+.pdf-search-bar input{flex:1;min-width:120px}
+.pdf-search-results{max-height:170px;overflow:auto;background:#fff;border-bottom:1px solid var(--line);padding:6px 8px}
+.pdf-search-result{padding:7px 8px;border-radius:7px;cursor:pointer;font-size:12px;line-height:1.45;border:1px solid transparent}
+.pdf-search-result:hover{background:#f2f8f6;border-color:#cfe2dc}
+.pdf-search-result.active{background:#fff4e8;border-color:#f1bd8a}
+
+#dropZone{width:min(650px,94%);min-height:360px;border:2px dashed #97c5bb;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);margin-top:28px;padding:30px}
+.pdf-page{background:#fff;box-shadow:0 3px 16px rgba(0,0,0,.12);position:relative}
+.pdf-page canvas{display:block}
+
+.reader-pane{display:flex;flex-direction:column;overflow:hidden;position:relative}
+.reader-toolbar{height:44px;flex-shrink:0;border-bottom:1px solid var(--line);padding:0 12px;display:flex;gap:8px;align-items:center;background:#fff}
+.reader-toolbar select{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 6px}
+.reading-controls{display:flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.reading-controls select{height:30px;max-width:145px}
+.tts-controls{display:flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid var(--line);border-radius:9px;background:#f8fbfa}
+.tts-controls button{min-width:30px;height:30px;padding:0 8px}
+.tts-controls button:disabled,.tts-controls select:disabled{opacity:.45;cursor:not-allowed}
+.tts-controls select{height:30px;max-width:155px}
+
+.clean-paragraph.tts-active{background:#fffdf7;border-left:3px solid #d99a35;padding-left:10px}
+.tts-sentence{border-radius:3px;padding:1px 1px;transition:background .12s ease}
+.tts-sentence.tts-active{background:#fff0b8;box-shadow:0 0 0 1px rgba(217,154,53,.18)}
+.tts-sentence.tts-startable{cursor:pointer}
+.tts-sentence.tts-startable:hover{background:#fff8df}
+.clean-paragraph.tts-startable{cursor:pointer}
+.clean-paragraph.tts-startable:hover{background:#f7fbfa}
+.clean-content{cursor:text}
+
+#cleanTextWrap{flex:1;min-height:100px;overflow:auto;padding:28px 36px 48px;background:#fff;position:relative}
+#cleanText{
+  max-width:780px;
+  margin:0 auto;
+  --reader-font: Georgia,"Times New Roman",serif;
+  --reader-size:17px;
+  --reader-line:1.85;
+  font-family:var(--reader-font);
+  font-size:var(--reader-size);
+  line-height:var(--reader-line);
+  color:#1d2d29
+}
+
+.clean-header-box{
+  border-bottom:2px solid var(--emerald);
+  padding-bottom:16px;
+  margin-bottom:28px;
+}
+.clean-title{
+  font-size:22px;
+  font-weight:750;
+  color:var(--emerald2);
+  margin:0 0 10px 0;
+  line-height:1.35;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+.clean-authors{
+  font-size:14px;
+  font-weight:600;
+  color:#2c3e38;
+  margin-bottom:6px;
+}
+.clean-affiliations{
+  font-size:12px;
+  color:#60736d;
+  line-height:1.5;
+}
+
+.clean-section{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  font-size:18.5px;
+  font-weight:750;
+  color:var(--emerald2);
+  margin:38px 0 16px;
+  padding-top:14px;
+  border-top:2px solid var(--emerald);
+  letter-spacing:-0.01em;
+}
+.clean-subheading{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  font-size:15.5px;
+  font-weight:700;
+  color:#2c534a;
+  margin:26px 0 12px;
+  padding-bottom:4px;
+  border-bottom:1px dashed #dbe7e3;
+}
+
+.clean-paragraph{
+  font-size:15.5px;
+  line-height:1.85;
+  margin:0 0 24px 0 !important;
+  padding:8px 12px;
+  border-radius:6px;
+  text-align:justify;
+  background:#fff;
+  border-left:3px solid transparent;
+  transition:all .15s ease;
+}
+.clean-paragraph:hover{
+  background:#f9fbfb;
+  border-left-color:var(--emerald);
+}
+
+.table-badge{display:inline-block;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;border-radius:4px;padding:1px 6px;font-size:12px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0 4px;vertical-align:1px}
+
+.page-tag{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:10.5px;color:#78908a;display:inline-block;margin-right:8px;vertical-align:2px;cursor:pointer;border:1px solid #dbe7e3;border-radius:4px;padding:1px 4px;background:#f8fbfa;user-select:none;font-style:normal;font-weight:normal}
+.page-tag:hover{color:var(--emerald);border-color:#9dc9c0}
+
+.paragraph-no{
+  display:inline-block;
+  margin-right:8px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  font-size:10.5px;
+  font-weight:600;
+  color:#94a3b8;
+  vertical-align:2px;
+  user-select:none;
+}
+
+/* テキスト選択ポップアップ & 結果表示パネル */
+#selectionPopup{
+  position:fixed;display:none;z-index:1000;background:#fff;border:1px solid var(--emerald);
+  box-shadow:0 6px 22px rgba(0,0,0,.18);border-radius:9px;padding:5px;gap:5px;align-items:center;
+  max-width:calc(100vw - 24px);white-space:nowrap;
+}
+#selectionPopup button{background:var(--emerald);color:#fff;border:none;padding:5px 10px;font-size:11.5px;border-radius:5px;cursor:pointer}
+#selectionPopup button:hover{background:var(--emerald2)}
+
+#resultPanel{
+  position:fixed;display:none;z-index:1001;background:#fff;border:1.5px solid var(--emerald);
+  box-shadow:0 8px 28px rgba(0,0,0,.20);border-radius:10px;padding:12px;
+  width:min(420px,calc(100vw - 24px));max-height:min(360px,55vh);overflow:auto;
+  font-size:13.5px;line-height:1.6;color:var(--ink);
+}
+#resultPanel .close-btn{float:right;background:none;border:none;font-size:14px;cursor:pointer;color:var(--muted);padding:0 4px}
+#resultPanel .close-btn:hover{color:var(--ink)}
+#resultPanel h4{margin:0 0 8px 0;font-size:14px;color:var(--emerald2)}
+
+
+#resultPanel{min-width:320px}
+#resultPanel .result-loading{padding:10px 0;color:var(--muted)}
+#resultPanel .result-source{font-size:10.5px;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+#resultPanel .result-text{white-space:pre-wrap}
+#resultPanel .dict-word{font-size:18px;font-weight:750;color:var(--emerald2);margin-bottom:4px}
+#resultPanel .dict-phonetic{font-size:12px;color:var(--muted);margin-bottom:8px}
+#resultPanel .dict-pos{font-size:11px;font-weight:700;color:var(--emerald);margin-top:8px;text-transform:uppercase}
+#resultPanel .dict-def{margin:3px 0 0 14px}
+#resultPanel .fallback-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+
+.result-source-badge{
+  display:inline-block;margin:0 0 7px;padding:2px 7px;border-radius:999px;
+  background:#eef7f4;color:var(--emerald2);border:1px solid #cfe3dd;
+  font-size:10.5px;font-weight:700
+}
+.result-warning{
+  margin-top:8px;padding:7px 8px;border-radius:6px;background:#fff8e8;
+  border:1px solid #f1ddb1;color:#745c25;font-size:11px;line-height:1.45
+}
+
+.selection-anchor-highlight{
+  background:rgba(255,233,138,.45);
+  border-radius:2px;
+}
+
+#resultPanel .fallback-actions button{font-size:11.5px;padding:5px 8px}
+
+.hint{font-size:11.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+
+@media(max-width:950px){
+  .workspace{grid-template-columns:1fr}
+  .pdf-pane{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Academic Clean Text Reader v136</div>
+  <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden>
+  <button id="openBtn" class="primary">PDFを開く</button>
+  <button id="togglePdfBtn">原PDFを隠す</button>
+  <div class="spacer"></div>
+  <div id="status">PDFを開いてください。</div>
+</header>
+
+<div class="workspace" id="workspace">
+  <section class="reader-pane" id="readerPane">
+    <div class="reader-toolbar">
+      <button id="analyzePaperBtn" class="primary" disabled>ChatGPTで分析用コピー</button>
+      <div class="reading-controls" aria-label="本文表示設定">
+        <select id="readerFont" title="本文フォント">
+          <option value="Georgia" selected>Georgia</option>
+          <option value="Arial">Arial</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Trebuchet MS">Trebuchet MS</option>
+        </select>
+        <select id="readerFontSize" title="文字サイズ">
+          <option value="15">15px</option>
+          <option value="16">16px</option>
+          <option value="17" selected>17px</option>
+          <option value="18">18px</option>
+        </select>
+        <select id="readerLineHeight" title="行間">
+          <option value="1.55">1.55</option>
+          <option value="1.7">1.70</option>
+          <option value="1.85" selected>1.85</option>
+          <option value="2">2.00</option>
+        </select>
+      </div>
+      <div class="tts-controls" aria-label="本文読み上げ">
+        <button id="ttsPlayBtn" disabled title="文単位で現在位置から再生">▶</button>
+        <button id="ttsPauseBtn" disabled title="一時停止／再開">⏸</button>
+        <button id="ttsStopBtn" disabled title="停止">■</button>
+        <select id="ttsVoice" title="音声"></select>
+        <select id="ttsRate" title="読み上げ速度">
+          <option value="0.75">0.75×</option>
+          <option value="0.9">0.9×</option>
+          <option value="1" selected>1.0×</option>
+          <option value="1.15">1.15×</option>
+        </select>
+      </div>
+      <span class="hint">A2-B1 Simple English強化 / 文単位読み上げ</span>
+    </div>
+    
+    <div id="cleanTextWrap">
+      <div id="selectionPopup">
+        <button id="popDict">辞書</button>
+        <button id="popAcad">学術日本語</button>
+        <button id="popSimple">Simple English</button>
+      </div>
+      <div id="resultPanel">
+        <button class="close-btn" id="closeResult">×</button>
+        <h4 id="resultTitle">解説</h4>
+        <div id="resultBody">内容</div>
+      </div>
+      <div id="cleanText">
+        <div class="small" style="text-align:center;margin-top:80px;color:var(--muted)">
+          PDFを開くと，ここに整流化された本文が表示されます。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pdf-pane" id="pdfPane">
+    <div class="pane-title">原論文PDF <span class="small" style="color:var(--muted);font-weight:normal">典拠確認用</span></div>
+    <div class="pdf-search-bar">
+      <input id="pdfSearchInput" type="search" placeholder="原PDF内の語句を検索">
+      <button id="pdfSearchGo">検索</button>
+      <button id="pdfSearchPrev" title="前の一致">↑</button>
+      <button id="pdfSearchNext" title="次の一致">↓</button>
+      <span id="pdfSearchCount" class="small" style="font-size:11px;color:var(--muted)">0/0</span>
+    </div>
+    <div id="pdfSearchResults" class="pdf-search-results" hidden></div>
+    <div id="pdfViewer">
+      <div id="dropZone">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:8px">論文PDFをドロップ</div>
+          <div>論文PDFを読み込み，本文抽出・原PDF確認・読み上げ・辞書・学術日本語・Simple Englishを1画面で利用できます。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = id => document.getElementById(id);
+const fileInput = $("fileInput"), openBtn = $("openBtn"), pdfViewer = $("pdfViewer"), dropZone = $("dropZone"), statusEl = $("status");
+const cleanText = $("cleanText"), cleanTextWrap = $("cleanTextWrap");
+const analyzePaperBtn = $("analyzePaperBtn");
+const selectionPopup = $("selectionPopup"), popDict = $("popDict"), popAcad = $("popAcad"), popSimple = $("popSimple");
+const resultPanel = $("resultPanel"), resultTitle = $("resultTitle"), resultBody = $("resultBody"), closeResult = $("closeResult");
+
+const togglePdfBtn = $("togglePdfBtn"), pdfPane = $("pdfPane"), workspace = $("workspace");
+const ttsPlayBtn = $("ttsPlayBtn"), ttsPauseBtn = $("ttsPauseBtn"), ttsStopBtn = $("ttsStopBtn"), ttsRate = $("ttsRate"), ttsVoice = $("ttsVoice");
+const readerFont = $("readerFont"), readerFontSize = $("readerFontSize"), readerLineHeight = $("readerLineHeight");
+const pdfSearchInput = $("pdfSearchInput"), pdfSearchGo = $("pdfSearchGo"), pdfSearchPrev = $("pdfSearchPrev"), pdfSearchNext = $("pdfSearchNext"), pdfSearchCount = $("pdfSearchCount"), pdfSearchResults = $("pdfSearchResults");
+
+let currentPdf = null;
+let cleanBlocks = [];
+let cleanPlainText = "";
+let paperTitle = "";
+let paperAuthors = "";
+let paperAffiliations = "";
+let pdfVisible = true;
+let pageNumberMap = new Map();
+let pdfSearchPages = [];
+let pdfSearchHits = [];
+let pdfSearchIndex = -1;
+let ttsUtterance = null;
+let ttsParagraphs = [];
+let ttsParagraphIndex = 0;
+let ttsSelectedVoiceURI = "";
+let ttsSessionId = 0;
+let ttsShouldRun = false;
+let ttsPaused = false;
+let selectedTextGlobal = "";
+let selectedRangeRect = null;
+let inlineAiSessions = {};
+let inlineAiBusy = false;
+
+function applyReaderAppearance(){
+  const fontMap = {
+    "Georgia": 'Georgia, "Times New Roman", serif',
+    "Arial": 'Arial, Helvetica, sans-serif',
+    "Verdana": 'Verdana, Geneva, sans-serif',
+    "Trebuchet MS": '"Trebuchet MS", Arial, sans-serif'
+  };
+  const font = fontMap[readerFont.value] || fontMap.Georgia;
+  const size = `${readerFontSize.value}px`;
+  const line = readerLineHeight.value;
+
+  cleanText.style.setProperty("--reader-font", font);
+  cleanText.style.setProperty("--reader-size", size);
+  cleanText.style.setProperty("--reader-line", line);
+  cleanText.style.fontFamily = font;
+  cleanText.style.fontSize = size;
+  cleanText.style.lineHeight = line;
+
+  cleanText.querySelectorAll(".clean-paragraph, .clean-content").forEach(el => {
+    el.style.fontFamily = font;
+    el.style.fontSize = size;
+    el.style.lineHeight = line;
+  });
+}
+
+readerFont.onchange = applyReaderAppearance;
+readerFontSize.onchange = applyReaderAppearance;
+
+readerLineHeight.onchange = applyReaderAppearance;
+
+function setStatus(t){ statusEl.textContent = t; }
+
+// タイトル欄は直接編集できる。保存後は通常表示に戻す。
+cleanText.addEventListener("click", e => {
+  const saveBtn = e.target.closest("#saveTitleBtn");
+  if(saveBtn){
+    e.preventDefault();
+    e.stopPropagation();
+
+    const input = cleanText.querySelector("#paperTitleInput");
+    const editRow = cleanText.querySelector("#paperTitleEditRow");
+    const displayRow = cleanText.querySelector("#paperTitleDisplayRow");
+    const displayTitle = cleanText.querySelector("#displayPaperTitle");
+    const hint = cleanText.querySelector("#titleEditHint");
+
+    if(!input) return;
+
+    const revised = normSpaces(input.value);
+    if(!revised){
+      setStatus("タイトルは空欄にはできません。");
+      input.focus();
+      return;
+    }
+
+    paperTitle = revised;
+    input.value = paperTitle;
+    if(displayTitle) displayTitle.textContent = paperTitle;
+
+    if(editRow) editRow.style.display = "none";
+    if(displayRow) displayRow.style.display = "flex";
+    if(hint) hint.style.display = "none";
+
+    setStatus("タイトルを保存しました。");
+    return;
+  }
+
+  const reEditBtn = e.target.closest("#reEditTitleBtn");
+  if(reEditBtn){
+    e.preventDefault();
+    e.stopPropagation();
+
+    const input = cleanText.querySelector("#paperTitleInput");
+    const editRow = cleanText.querySelector("#paperTitleEditRow");
+    const displayRow = cleanText.querySelector("#paperTitleDisplayRow");
+    const hint = cleanText.querySelector("#titleEditHint");
+
+    if(input) input.value = paperTitle || "";
+    if(displayRow) displayRow.style.display = "none";
+    if(editRow) editRow.style.display = "flex";
+    if(hint) hint.style.display = "block";
+
+    if(input){
+      input.focus();
+      input.select();
+    }
+  }
+});
+
+// Ctrl+Enter / Cmd+Enterでもタイトルを保存できる。
+cleanText.addEventListener("keydown", e => {
+  if(!e.target.matches("#paperTitleInput")) return;
+  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+    e.preventDefault();
+    const btn = cleanText.querySelector("#saveTitleBtn");
+    if(btn) btn.click();
+  }
+});
+
+
+function normSpaces(s){
+  return String(s || "")
+    .replace(/[\u00ad\u200b\u200e\u200f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function endsCompleteSentence(t){
+  const s = normSpaces(t);
+  if(!s) return false;
+  return /[.!?](?:["'\u201d\u2019)\]\}]+)?$/.test(s);
+}
+
+function isAcademicNoiseOrUrl(t, y, pageHeight){
+  const s = normSpaces(t);
+  if(!s || s.length < 2) return true;
+  if(y < pageHeight * 0.08 || y > pageHeight * 0.92){
+    if(/^\d+$/.test(s)) return true;
+    if(/^JOURNAL OF/i.test(s) || /ASIS&T/i.test(s)) return true;
+    if(/February \d{1,2},\s*\d{4}/i.test(s)) return true;
+  }
+  if(/^(©|V\s*C|\(c\))\s*\d{4}/i.test(s)) return true;
+  if(/^(Received|Accepted|Revised)\s+[A-Za-z0-9]/i.test(s)) return true;
+  if(/(DOI:\s*10\.|https?:\/\/doi\.org|doi\.org\/10\.)/i.test(s)) return true;
+  if(/^Published online/i.test(s)) return true;
+  if(/^E-?mail:\s*[\w.-]+@/i.test(s)) return true;
+  if(/Downloaded from|Terms and Conditions|Creative Commons/i.test(s)) return true;
+  if(/^https?:\/\//i.test(s)) return true;
+  if(/[a-z0-9\-_./]+(\.(?:com|org|net|edu|gov|uk))[a-z0-9\-_./]*/i.test(s)) return true;
+  if(/^(youngparents-support|advice-support|coffeehouse|[a-z0-9\-_]+-\d+)\//i.test(s)) return true;
+  return false;
+}
+
+function getCaptionLabel(t){
+  const s = normSpaces(t);
+  const matchTable = s.match(/^(TABLE|Table)\s*(\d+)\b/i);
+  if(matchTable) return `[Table ${matchTable[2]}]`;
+  const matchFig = s.match(/^(FIGURE|Figure|Fig\.)\s*(\d+)\b/i);
+  if(matchFig) return `[Figure ${matchFig[2]}]`;
+  return null;
+}
+
+function isTableItemNoise(s){
+  // 本文中の固有名詞や専門語を削除しない。
+  // アイテム単位で除去するのは，純粋な数値セルなど極めて明確なものだけ。
+  if(!s) return true;
+  const t = normSpaces(s);
+  if(/^(\d+(?:\.\d+)?%?\s*){2,}$/.test(t)) return true;
+  return false;
+}
+
+function isTableRowNoise(s){
+  // 内容語ではなく，一般的な数値密度だけで補助判定する。
+  if(!s) return true;
+  const t = normSpaces(s);
+  const nums = (t.match(/\b\d+(?:\.\d+)?%?\b/g) || []).length;
+  const words = (t.match(/[A-Za-z]+/g) || []).length;
+  if(nums >= 4 && nums >= Math.max(2, words)) return true;
+  return false;
+}
+
+function looksLikeTableLineGeometry(line, prevLine=null, nextLine=null){
+  if(!line || !line.items || !line.items.length) return false;
+
+  const items = line.items;
+  const gaps = [];
+  for(let i=1;i<items.length;i++){
+    const prev = items[i-1];
+    const cur = items[i];
+    gaps.push(cur.x - (prev.x + prev.w));
+  }
+
+  const largeGaps = gaps.filter(g => g > Math.max(18, (line.h || 10) * 1.8)).length;
+  const veryLargeGaps = gaps.filter(g => g > Math.max(34, (line.h || 10) * 3.0)).length;
+  const nums = (line.text.match(/\b\d+(?:\.\d+)?%?\b/g) || []).length;
+  const words = (line.text.match(/[A-Za-z]+/g) || []).length;
+
+  // 典型的な表行：複数セル間の大きな水平空白があり，短い断片が並ぶ。
+  if(items.length >= 4 && largeGaps >= 2 && line.text.length < 150) return true;
+  if(items.length >= 3 && veryLargeGaps >= 1 && nums >= 2 && nums >= words * 0.5) return true;
+  if(nums >= 4 && largeGaps >= 1) return true;
+
+  // 隣接行も同じx配置なら表らしさを強める。
+  const neighborSimilar = neighbor => {
+    if(!neighbor || !neighbor.items || neighbor.items.length < 3) return false;
+    const xs1 = items.slice(0,4).map(x=>x.x);
+    const xs2 = neighbor.items.slice(0,4).map(x=>x.x);
+    let matches = 0;
+    for(const x of xs1){
+      if(xs2.some(y => Math.abs(x-y) < 12)) matches++;
+    }
+    return matches >= 2;
+  };
+
+  if(items.length >= 3 && largeGaps >= 1 && (neighborSimilar(prevLine) || neighborSimilar(nextLine))){
+    if(line.text.length < 120 && !/[.!?]["'”’]?$/.test(line.text)) return true;
+  }
+
+  return false;
+}
+
+function isProseLine(t){
+  const s = normSpaces(t);
+  if(!s || s.length < 16) return false;
+  if(isTableRowNoise(s)) return false;
+  if(/^["'“‘]/.test(s) || /[.!?]["'”’]?$/.test(s)) return true;
+  const keywords = (s.match(/\b(the|a|an|of|in|to|for|with|and|is|are|was|were|has|have|had|this|these|those|we|our|participants|mothers|women|children|baby|information|posts|need|needs|study|results|findings|showed|reported|because|although|however|whereas|use|used|using|focused|coded|established|derived)\b/gi) || []).length;
+  return keywords >= 2;
+}
+
+function looksLikePersonName(t){
+  const s = normSpaces(t).replace(/[\*\u2020\u2021\u00b9\u00b2\u00b3]+$/g, "").trim();
+  if(!s || s.length < 5 || s.length > 50) return false;
+  if(/\d|@|https?:|doi|department|university|school|institute|abstract|introduction/i.test(s)) return false;
+  const words = s.split(/\s+/);
+  if(words.length < 2 || words.length > 4) return false;
+  let nameLike = 0;
+  for(const w of words){
+    if(/^[A-Z][A-Za-z'’\-]+$/.test(w.replace(/[.,]/g, ""))) nameLike++;
+  }
+  return nameLike === words.length;
+}
+
+function looksLikeAffiliation(t){
+  const s = normSpaces(t);
+  return /\b(Department|University|Faculty|Institute|School|College|Centre|Center|Laboratory|Library|Hospital|Academy|United Kingdom|USA|Scotland|England|Japan|Canada|Australia)\b/i.test(s);
+}
+
+function groupFrontMatterLines(items){
+  const sorted = [...items].sort((a,b)=>a.y-b.y || a.x-b.x);
+  const lines = [];
+
+  for(const it of sorted){
+    const t = normSpaces(it.text);
+    if(!t) continue;
+
+    let line = lines.find(l => Math.abs(l.y - it.y) <= Math.max(2.5, (it.h || 10) * 0.38));
+    if(!line){
+      line = { y:it.y, items:[], text:"", h:it.h || 10, x:it.x, right:it.x + (it.w||0) };
+      lines.push(line);
+    }
+    line.items.push(it);
+    line.h = Math.max(line.h, it.h || 0);
+    line.x = Math.min(line.x, it.x);
+    line.right = Math.max(line.right, it.x + (it.w || 0));
+  }
+
+  for(const line of lines){
+    line.items.sort((a,b)=>a.x-b.x);
+    line.text = normSpaces(line.items.map(x=>x.text).join(" "));
+    line.width = Math.max(0, line.right - line.x);
+  }
+
+  return lines.sort((a,b)=>a.y-b.y);
+}
+
+function isJournalOrMetadataLine(t){
+  const s = normSpaces(t);
+  if(!s) return true;
+  if(/^(volume|vol\.?|issue|no\.?|pages?|pp\.?|article|research article|original article|review article)\b/i.test(s)) return true;
+  if(/\bISSN\b|\bISBN\b|\bDOI\b|doi\.org/i.test(s)) return true;
+  if(/\b(Received|Accepted|Revised|Published online|Available online)\b/i.test(s)) return true;
+  if(/^\d{4}\b/.test(s) && s.length < 40) return true;
+  if(/\b(journal|proceedings|transactions|quarterly|review)\b/i.test(s) && s.length < 90) return true;
+  return false;
+}
+
+function titleCandidateScore(line, pageWidth, medianH, topY){
+  const t = normSpaces(line.text);
+  if(!t) return -999;
+  if(t.length < 8 || t.length > 260) return -999;
+  if(isAcademicNoiseOrUrl(t, line.y, 100000)) return -999;
+  if(isJournalOrMetadataLine(t)) return -999;
+  if(looksLikeAffiliation(t) || looksLikePersonName(t)) return -999;
+  if(/^(abstract|introduction|keywords?|methods?|results?|discussion|conclusions?)$/i.test(t)) return -999;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  const letters = (t.match(/[A-Za-z]/g) || []).length;
+  if(letters < 6) return -999;
+
+  let score = 0;
+
+  // Font prominence
+  const ratio = (line.h || medianH) / Math.max(1, medianH);
+  if(ratio >= 1.65) score += 7;
+  else if(ratio >= 1.40) score += 5;
+  else if(ratio >= 1.20) score += 3;
+  else if(ratio >= 1.08) score += 1;
+
+  // Position: title is normally near the upper part, but not a running header.
+  if(line.y >= topY + 12 && line.y <= topY + 230) score += 4;
+  else if(line.y <= topY + 330) score += 2;
+
+  // Width and phrase characteristics
+  const widthRatio = line.width / Math.max(1, pageWidth);
+  if(widthRatio >= 0.38) score += 3;
+  else if(widthRatio >= 0.22) score += 1;
+
+  if(words.length >= 5 && words.length <= 24) score += 3;
+  else if(words.length >= 3 && words.length <= 30) score += 1;
+
+  if(/[:—–-]/.test(t)) score += 1;
+  if(/[.!?]$/.test(t)) score -= 2;
+  if(/\b(and|of|for|in|with|among|between|through|using|toward|towards)\b/i.test(t)) score += 1;
+
+  // Penalize author-heavy / citation-like lines.
+  const commas = (t.match(/,/g) || []).length;
+  if(commas >= 3 && words.length <= 12) score -= 4;
+  if(/\bet al\.\b/i.test(t)) score -= 5;
+  if(/\b(19|20)\d{2}\b/.test(t)) score -= 3;
+
+  return score;
+}
+
+function parseFrontMatter(items, pageHeight, pageWidth){
+  const sorted = [...items].sort((a,b)=>a.y-b.y || a.x-b.x);
+  const lines = groupFrontMatterLines(sorted);
+
+  let bodyStartY = pageHeight * 0.46;
+  for(const line of lines){
+    const t = normSpaces(line.text);
+    if(/^(Abstract|Introduction)\b/i.test(t)){
+      bodyStartY = Math.min(bodyStartY, line.y);
+      break;
+    }
+  }
+
+  const frontLines = lines.filter(l => l.y < bodyStartY);
+  const bodyItems = sorted.filter(it => it.y >= bodyStartY);
+
+  if(!frontLines.length){
+    return { title:"", authors:"", affiliations:"", bodyItems };
+  }
+
+  const hs = frontLines
+    .map(l=>l.h || 0)
+    .filter(h=>h > 0)
+    .sort((a,b)=>a-b);
+  const medianH = hs.length ? hs[Math.floor(hs.length/2)] : 10;
+  const topY = Math.min(...frontLines.map(l=>l.y));
+
+  // Score each line as a title seed.
+  const scored = frontLines.map((line,idx)=>({
+    idx, line, score:titleCandidateScore(line, pageWidth, medianH, topY)
+  })).sort((a,b)=>b.score-a.score);
+
+  let titleLines = [];
+  const best = scored[0];
+
+  if(best && best.score >= 4){
+    titleLines = [best.line];
+
+    // Academic titles often wrap over 2-3 adjacent lines with similar font size.
+    for(const dir of [-1,1]){
+      let pos = best.idx + dir;
+      while(pos >= 0 && pos < frontLines.length && titleLines.length < 3){
+        const q = frontLines[pos];
+        const qScore = titleCandidateScore(q, pageWidth, medianH, topY);
+        const fontSimilar = Math.abs((q.h||medianH) - (best.line.h||medianH)) <= Math.max(2.2, best.line.h*0.16);
+        const verticalNear = Math.abs(q.y - best.line.y) <= Math.max(75, best.line.h*4.5);
+        const plausible = qScore >= 1 && fontSimilar && verticalNear &&
+          !looksLikePersonName(q.text) && !looksLikeAffiliation(q.text) && !isJournalOrMetadataLine(q.text);
+
+        if(!plausible) break;
+        titleLines.push(q);
+        pos += dir;
+      }
+    }
+  }
+
+  titleLines = [...new Set(titleLines)].sort((a,b)=>a.y-b.y);
+  let title = normSpaces(titleLines.map(l=>l.text).join(" "));
+
+  // Fallback: choose the longest prominent non-metadata line in the upper area.
+  if(!title){
+    const fallback = frontLines
+      .filter(l => l.y <= topY + 300)
+      .filter(l => !looksLikePersonName(l.text) && !looksLikeAffiliation(l.text) && !isJournalOrMetadataLine(l.text))
+      .filter(l => l.text.length >= 15)
+      .sort((a,b)=>{
+        const ah=(a.h||medianH)/medianH, bh=(b.h||medianH)/medianH;
+        return (bh*3 + b.text.length/80) - (ah*3 + a.text.length/80);
+      })[0];
+    title = fallback ? normSpaces(fallback.text) : "";
+  }
+
+  // Authors and affiliations are taken only from lines below title where possible.
+  const titleBottom = titleLines.length ? Math.max(...titleLines.map(l=>l.y + l.h)) : topY;
+  const authorList = [];
+  const affList = [];
+
+  for(const line of frontLines){
+    const t = normSpaces(line.text);
+    if(!t || titleLines.includes(line)) continue;
+    if(line.y < titleBottom - 4) continue;
+    if(isAcademicNoiseOrUrl(t, line.y, pageHeight) || isJournalOrMetadataLine(t)) continue;
+
+    if(looksLikePersonName(t)){
+      authorList.push(t);
+    }else if(looksLikeAffiliation(t)){
+      affList.push(t);
+    }
+  }
+
+  return {
+    title,
+    authors:[...new Set(authorList)].join(" | "),
+    affiliations:[...new Set(affList)].join(" | "),
+    bodyItems
+  };
+}
+
+function isMajorHeading(t){
+  const s = normSpaces(t);
+  if(!s || s.length > 50) return false;
+  if(isTableRowNoise(s)) return false;
+  return /^(abstract|introduction|background|literature review|methodology|methods|findings|results|discussion|conclusion|conclusions|limitations|implications|analysis|data)$/i.test(s) ||
+         /^\d+(\.\d+)*\s+(Introduction|Background|Methodology|Methods|Findings|Results|Discussion|Conclusion|Conclusions|Limitations|Data|Analysis)$/i.test(s);
+}
+
+function isSubHeading(t){
+  const s = normSpaces(t);
+  if(!s || s.length < 5 || s.length > 55) return false;
+  if(isTableRowNoise(s)) return false;
+  if(/^(Child Development and Health|Providing a Good Environment|Relationships|Information Needs in Motherhood|Internet and Motherhood|Categories of Need|Data Collection|Data Analysis)$/i.test(s)) return true;
+  if(/^\d+(\.\d+)+\s+[A-Z]/.test(s)) return true;
+  return false;
+}
+
+function assembleLineText(lines){
+  let out = "";
+  for(const ln of lines){
+    let t = normSpaces(ln.text);
+    if(!t) continue;
+    if(/-\s*$/.test(out)){
+      if(/[A-Za-z]-\s*$/.test(out) && /^[a-z]/.test(t)){
+        out = out.replace(/-\s*$/, "") + t;
+      }else{
+        out = out.replace(/-\s*$/, "-") + t;
+      }
+    } else {
+      out += (out ? " " : "") + t;
+    }
+  }
+  return normSpaces(out);
+}
+
+function medianValue(values){
+  if(!values.length) return 0;
+  const a = [...values].sort((x,y)=>x-y);
+  return a[Math.floor(a.length/2)];
+}
+
+function getColumnBaseX(lines){
+  if(!lines.length) return 0;
+  const xs = lines.filter(l => normSpaces(l.text).length >= 15).map(l => l.x).sort((a,b)=>a-b);
+  if(!xs.length) return lines[0].x;
+  return medianValue(xs.slice(0, Math.max(3, Math.ceil(xs.length * 0.35))));
+}
+
+function findColumnGutterX(items, pageWidth){
+  const bodyItems = items.filter(it => {
+    const t = normSpaces(it.text);
+    return t.length >= 8 && (it.w || 0) < (pageWidth * 0.65);
+  });
+  if(bodyItems.length < 15) return pageWidth / 2;
+
+  const bins = new Array(50).fill(0);
+  const startX = pageWidth * 0.30;
+  const endX = pageWidth * 0.70;
+  const binWidth = (endX - startX) / 50;
+
+  for(const it of bodyItems){
+    const left = Math.max(startX, it.x);
+    const right = Math.min(endX, it.x + it.w);
+    if(left < right){
+      const sIdx = Math.floor((left - startX) / binWidth);
+      const eIdx = Math.floor((right - startX) / binWidth);
+      for(let b = Math.max(0, sIdx); b <= Math.min(49, eIdx); b++){
+        bins[b]++;
+      }
+    }
+  }
+
+  let minCount = Infinity;
+  let bestBin = 25;
+  for(let i = 10; i < 40; i++){
+    if(bins[i] < minCount){
+      minCount = bins[i];
+      bestBin = i;
+    }
+  }
+  return startX + (bestBin + 0.5) * binWidth;
+}
+
+async function loadPdf(file){
+  stopTts(false);
+  try{
+    setStatus("PDFを読み込んでいます…");
+    pdfViewer.innerHTML = "";
+    cleanText.innerHTML = "<div class='small' style='text-align:center;margin-top:80px;color:var(--muted)'>表セル遮断・段落完全結合処理中…</div>";
+
+    analyzePaperBtn.disabled = true;
+    cleanBlocks = [];
+    cleanPlainText = "";
+    paperTitle = "";
+    paperAuthors = "";
+    paperAffiliations = "";
+    pageNumberMap.clear();
+    pdfSearchPages = [];
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    currentPdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+    let reachedReferences = false;
+    let pendingStream = [];
+    let pendingPage = 1;
+    let pendingTableBadge = null;
+
+    for(let p = 1; p <= currentPdf.numPages; p++){
+      if(reachedReferences) break;
+      setStatus(`構造化中… ${p}/${currentPdf.numPages} ページ`);
+      await new Promise(r => setTimeout(r, 0));
+
+      const page = await currentPdf.getPage(p);
+      const baseVp = page.getViewport({ scale: 1.0 });
+      const displayWidth = Math.min(780, Math.max(430, window.innerWidth * 0.48 - 45));
+      const scale = displayWidth / baseVp.width;
+      const viewport = page.getViewport({ scale });
+
+      const pageDiv = document.createElement("div");
+      pageDiv.className = "pdf-page"; pageDiv.dataset.page = String(p);
+      pageDiv.style.width = viewport.width + "px"; pageDiv.style.height = viewport.height + "px";
+
+      const canvas = document.createElement("canvas");
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(viewport.width * dpr); canvas.height = Math.round(viewport.height * dpr);
+      canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
+      const ctx = canvas.getContext("2d", { alpha: false });
+      await page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null, background: "#fff" }).promise;
+      pageDiv.appendChild(canvas); pdfViewer.appendChild(pageDiv);
+
+      const textContent = await page.getTextContent();
+      const rawItems = [];
+      const searchItems = [];
+      let detectedPageNumber = null;
+
+      for(const it of textContent.items){
+        if(!it.str || !it.str.trim()) continue;
+        const tx = pdfjsLib.Util.transform(viewport.transform, it.transform);
+        const fontH = Math.hypot(tx[2], tx[3]);
+        const y = tx[5] - fontH;
+        const s = normSpaces(it.str);
+        if(/^\d+$/.test(s) && (y < viewport.height * 0.08 || y > viewport.height * 0.92)){
+          detectedPageNumber = s;
+        }
+      }
+      pageNumberMap.set(p, detectedPageNumber || String(p));
+
+      for(const it of textContent.items){
+        if(!it.str || !it.str.trim()) continue;
+        const tx = pdfjsLib.Util.transform(viewport.transform, it.transform);
+        const fontH = Math.hypot(tx[2], tx[3]);
+        const x = tx[4];
+        const y = tx[5] - fontH;
+        const w = Math.abs((it.width || 0) * scale);
+        const str = normSpaces(it.str);
+
+        searchItems.push({ text: str, x, y, w, h: fontH });
+        if(isAcademicNoiseOrUrl(str, y, viewport.height)) continue;
+        rawItems.push({ text: str, x, y, w, h: fontH });
+      }
+
+      pdfSearchPages.push({ page:p, width:viewport.width, height:viewport.height, items:searchItems });
+      if(!rawItems.length) continue;
+
+      let pageItems = rawItems;
+      if(p === 1){
+        const meta = parseFrontMatter(rawItems, viewport.height, viewport.width);
+        paperTitle = meta.title || file.name.replace(/\.pdf$/i, "");
+        paperAuthors = meta.authors;
+        paperAffiliations = meta.affiliations;
+        pageItems = meta.bodyItems;
+      }
+
+      const gutterX = findColumnGutterX(pageItems, viewport.width);
+
+      function buildLines(items){
+        items.sort((a, b) => a.y - b.y || a.x - b.x);
+        const lines = [];
+        for(const item of items){
+          let matched = lines.find(l => Math.abs(l.y - item.y) <= Math.max(2.5, item.h * 0.35));
+          if(!matched){
+            matched = { y: item.y, h: item.h, items: [] };
+            lines.push(matched);
+          }
+          matched.items.push(item);
+        }
+        for(const l of lines){
+          l.items.sort((a, b) => a.x - b.x);
+          let joinedText = "";
+          for(let i = 0; i < l.items.length; i++){
+            const cur = l.items[i];
+            if(i === 0){
+              joinedText = cur.text;
+            } else {
+              const prev = l.items[i - 1];
+              const gap = cur.x - (prev.x + prev.w);
+              if(gap > 1.5 || (/[A-Za-z0-9]$/.test(prev.text) && /^[A-Za-z0-9]/.test(cur.text))){
+                joinedText += " " + cur.text;
+              } else {
+                joinedText += cur.text;
+              }
+            }
+          }
+          l.text = normSpaces(joinedText);
+          l.x = Math.min(...l.items.map(i => i.x));
+          l.right = Math.max(...l.items.map(i => i.x + i.w));
+          l.width = l.right - l.x;
+          l.gaps = [];
+          for(let gi=1; gi<l.items.length; gi++){
+            const gp = l.items[gi-1], gc = l.items[gi];
+            l.gaps.push(gc.x - (gp.x + gp.w));
+          }
+        }
+        lines.sort((a, b) => a.y - b.y);
+        return lines;
+      }
+
+      const leftRawItems = pageItems.filter(it => (it.x + it.w / 2) < gutterX);
+      const rightRawItems = pageItems.filter(it => (it.x + it.w / 2) >= gutterX);
+      const leftLines = buildLines(leftRawItems);
+      const rightLines = buildLines(rightRawItems);
+
+      function filterLines(lines){
+        const out = [];
+        let localTableMode = false;
+
+        for(let i = 0; i < lines.length; i++){
+          const ln = lines[i];
+          const t = normSpaces(ln.text);
+          if(!t) continue;
+
+          const prevLine = i > 0 ? lines[i-1] : null;
+          const nextLine = i + 1 < lines.length ? lines[i+1] : null;
+          const geometryTable = looksLikeTableLineGeometry(ln, prevLine, nextLine);
+
+          const cap = getCaptionLabel(t);
+          if(cap && /^\[Table /i.test(cap)){
+            localTableMode = true;
+            pendingTableBadge = cap;
+            continue;
+          }
+          if(cap && /^\[Figure /i.test(cap)){
+            continue;
+          }
+
+          if(geometryTable || isTableRowNoise(t)){
+            localTableMode = true;
+            continue;
+          }
+
+          if(localTableMode){
+            // 明確な散文行・見出しに戻ったら表領域終了。
+            if(isMajorHeading(t) || isSubHeading(t) || isProseLine(t)){
+              localTableMode = false;
+            }else{
+              continue;
+            }
+          }
+
+          if(isAcademicNoiseOrUrl(t, ln.y, viewport.height)) continue;
+          out.push(ln);
+        }
+        return out;
+      }
+
+      const cleanLeftLines = filterLines(leftLines);
+      const cleanRightLines = filterLines(rightLines);
+      const pageStream = [...cleanLeftLines, ...cleanRightLines];
+      const leftBaseX = getColumnBaseX(cleanLeftLines);
+      const rightBaseX = getColumnBaseX(cleanRightLines);
+      const leftMaxRight = cleanLeftLines.length ? Math.max(...cleanLeftLines.map(l => l.right)) : gutterX;
+      const rightMaxRight = cleanRightLines.length ? Math.max(...cleanRightLines.map(l => l.right)) : viewport.width;
+
+      for(let idx = 0; idx < pageStream.length; idx++){
+        const ln = pageStream[idx];
+        let t = normSpaces(ln.text);
+        if(!t) continue;
+
+        if(/^(references|bibliography|works cited|acknowledgments|acknowledgement|funding|declaration of conflicting interests)$/i.test(t)){
+          flushPending();
+          cleanBlocks.push({ type: "references-stop", text: t, page: p });
+          reachedReferences = true;
+          break;
+        }
+
+        const prevLnHasOpenSentence = pendingStream.length > 0 && !endsCompleteSentence(pendingStream[pendingStream.length - 1].text);
+
+        if(!prevLnHasOpenSentence){
+          if(isMajorHeading(t)){
+            flushPending();
+            cleanBlocks.push({ type: "h", text: t, page: p });
+            continue;
+          }
+          if(isSubHeading(t)){
+            flushPending();
+            cleanBlocks.push({ type: "sub-h", text: t, page: p });
+            continue;
+          }
+        }
+
+        if(pendingStream.length){
+          const prevLn = pendingStream[pendingStream.length - 1];
+          const prevT = normSpaces(prevLn.text);
+          if(/-\s*$/.test(prevT)){
+            // 行末の語分割ハイフンは，次行が小文字で始まる場合に除去して復元。
+            if(/[A-Za-z]-\s*$/.test(prevT) && /^[a-z]/.test(t)){
+              prevLn.text = prevT.replace(/-\s*$/, "") + t;
+            }else{
+              prevLn.text = prevT.replace(/-\s*$/, "-") + t;
+            }
+            if(pendingTableBadge && endsCompleteSentence(prevLn.text)){
+              prevLn.text += ` ${pendingTableBadge}`;
+              pendingTableBadge = null;
+            }
+            continue;
+          }
+          if(!endsCompleteSentence(prevT)){
+            if(pendingTableBadge && !prevLn.text.includes(pendingTableBadge)){
+              prevLn.text += ` ${pendingTableBadge}`;
+              pendingTableBadge = null;
+            }
+            prevLn.text = prevT + " " + t;
+            continue;
+          }
+        }
+
+        let startsNewPara = false;
+        if(pendingStream.length){
+          const prevLn = pendingStream[pendingStream.length - 1];
+          const prevT = normSpaces(prevLn.text);
+          const sentenceEnded = endsCompleteSentence(prevT);
+          const isLeft = ln.x < gutterX;
+          const colBaseX = isLeft ? leftBaseX : rightBaseX;
+          const colMaxRight = isLeft ? leftMaxRight : rightMaxRight;
+          const isClearIndent = (ln.x - colBaseX) >= 7.5;
+          const isClearBlockGap = (ln.y - prevLn.y) >= (ln.h * 1.65) && (colMaxRight - prevLn.right) >= 36.0;
+          const isExplicitTopicHeader = /^(Our final theme|The second most common topic|The final code|Many young first-time mothers)\b/i.test(t);
+
+          if(sentenceEnded && (isClearIndent || isClearBlockGap || isExplicitTopicHeader) && /^[A-Z"'“‘]/.test(t)){
+            startsNewPara = true;
+          }
+        }
+
+        if(startsNewPara) flushPending();
+        if(!pendingStream.length) pendingPage = p;
+        pendingStream.push(ln);
+      }
+    }
+
+    function flushPending(){
+      if(!pendingStream.length) return;
+      let txt = assembleLineText(pendingStream);
+      if(pendingTableBadge && !txt.includes(pendingTableBadge)){
+        txt += ` ${pendingTableBadge}`;
+        pendingTableBadge = null;
+      }
+      if(txt.length >= 8){
+        cleanBlocks.push({ type: "p", text: txt, page: pendingPage });
+      }
+      pendingStream = [];
+    }
+
+    flushPending();
+    consolidateParagraphs();
+
+    renderCleanText();
+    cleanPlainText = cleanBlocks.filter(b => b.type !== "references-stop").map(b => b.text).join("\n\n");
+    analyzePaperBtn.disabled = !cleanPlainText;
+    setStatus(`本文復元完了：${cleanBlocks.filter(b=>b.type==="p").length} 個の完全段落`);
+  }catch(err){
+    console.error(err);
+    setStatus("PDFの抽出に失敗しました。");
+    cleanText.innerHTML = `<div class="error">抽出エラー: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function consolidateParagraphs(){
+  const merged = [];
+
+  for(let i = 0; i < cleanBlocks.length; i++){
+    const cur = cleanBlocks[i];
+
+    if(cur.type !== "p" || merged.length === 0){
+      merged.push(cur);
+      continue;
+    }
+
+    const prev = merged[merged.length - 1];
+    if(prev.type !== "p"){
+      merged.push(cur);
+      continue;
+    }
+
+    const prevEnds = endsCompleteSentence(prev.text);
+    const curStartsLower = /^[a-z]/.test(cur.text);
+    const curStartsConnector = /^(and|or|but|because|whereas|whose|which|that|with|while|although)\b/i.test(cur.text);
+
+    // 文が未完である，または明確な継続節である場合だけ結合する。
+    // 「前段落が短い」という理由だけでは結合しない。
+    if(!prevEnds || curStartsLower || curStartsConnector){
+      prev.text = normSpaces(prev.text + " " + cur.text);
+    }else{
+      merged.push(cur);
+    }
+  }
+
+  cleanBlocks = merged;
+}
+
+function splitIntoSentences(text){
+  const s = String(text || "").trim();
+  if(!s) return [];
+
+  // Academic citations often contain periods, so use punctuation followed by whitespace + likely sentence start.
+  const parts = s.split(/(?<=[.!?]["'”’\)]?)\s+(?=[A-Z“"'])/g).map(x=>x.trim()).filter(Boolean);
+  return parts.length ? parts : [s];
+}
+
+function appendSentenceSpans(container, rawText){
+  const parts = splitIntoSentences(rawText);
+  parts.forEach((part, idx) => {
+    const span = document.createElement("span");
+    span.className = "tts-sentence";
+    span.textContent = part;
+    container.appendChild(span);
+    if(idx < parts.length - 1) container.appendChild(document.createTextNode(" "));
+  });
+}
+
+function renderCleanText(){
+  cleanText.innerHTML = "";
+  const headerBox = document.createElement("div");
+  headerBox.className = "clean-header-box";
+  headerBox.innerHTML = `
+    <div id="paperTitleDisplayRow" style="display:none;gap:8px;align-items:flex-start">
+      <div class="clean-title" id="displayPaperTitle" style="flex:1">${escapeHtml(paperTitle)}</div>
+      <button type="button" id="reEditTitleBtn"
+        style="font-size:11px;padding:5px 8px;white-space:nowrap">再編集</button>
+    </div>
+
+    <div id="paperTitleEditRow" style="display:flex;gap:8px;align-items:flex-start">
+      <textarea id="paperTitleInput"
+        style="flex:1;min-height:58px;resize:vertical;border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:20px;font-weight:750;color:var(--emerald2);line-height:1.35;background:#fff"
+        aria-label="論文タイトル">${escapeHtml(paperTitle)}</textarea>
+      <button type="button" id="saveTitleBtn"
+        style="font-size:11px;padding:6px 8px;white-space:nowrap">保存</button>
+    </div>
+
+    <div id="titleEditHint" class="small" style="margin:4px 0 10px;color:var(--muted)">
+      タイトルが誤っている場合は，この欄を直接修正して「保存」を押してください。
+    </div>
+
+    <div class="clean-authors">著者: ${escapeHtml(paperAuthors || "未取得")}</div>
+    ${paperAffiliations ? `<div class="clean-affiliations">所属: ${escapeHtml(paperAffiliations)}</div>` : ""}
+  `;
+  cleanText.appendChild(headerBox);
+
+  let pIndex = 0;
+  for(const block of cleanBlocks){
+    if(block.type === "h"){
+      const h = document.createElement("div");
+      h.className = "clean-section"; h.textContent = block.text;
+      cleanText.appendChild(h);
+    } else if(block.type === "sub-h"){
+      const sub = document.createElement("div");
+      sub.className = "clean-subheading"; sub.textContent = block.text;
+      cleanText.appendChild(sub);
+    } else {
+      const p = document.createElement("p");
+      p.className = "clean-paragraph";
+      p.dataset.index = pIndex;
+      p.dataset.page = block.page;
+
+      const paraNo = document.createElement("span");
+      paraNo.className = "paragraph-no";
+      paraNo.textContent = `¶${pIndex + 1}`;
+      p.appendChild(paraNo);
+      pIndex++;
+
+      const printedNum = pageNumberMap.get(block.page) || block.page;
+      const tag = document.createElement("span");
+      tag.className = "page-tag"; tag.textContent = `p.${printedNum}`;
+      tag.onclick = e => { e.stopPropagation(); jumpToPdfPage(block.page); };
+      p.appendChild(tag);
+
+      const contentSpan = document.createElement("span");
+      contentSpan.className = "clean-content";
+
+      // 文単位で読み上げられるよう，本文をsentence spanへ分割。
+      // Table/Figure badgeは読み上げ対象外の小要素として残す。
+      const badgeRe = /\[(Table|Figure)\s*(\d+)\]/gi;
+      let last = 0;
+      let match;
+      while((match = badgeRe.exec(block.text)) !== null){
+        if(match.index > last){
+          appendSentenceSpans(contentSpan, block.text.slice(last, match.index));
+        }
+        const badge = document.createElement("span");
+        badge.className = "table-badge";
+        badge.textContent = `[${match[1]} ${match[2]}]`;
+        contentSpan.appendChild(badge);
+        contentSpan.appendChild(document.createTextNode(" "));
+        last = badgeRe.lastIndex;
+      }
+      if(last < block.text.length){
+        appendSentenceSpans(contentSpan, block.text.slice(last));
+      }
+
+      p.appendChild(contentSpan);
+      cleanText.appendChild(p);
+    }
+  }
+
+  updateTtsControls();
+  collectTtsParagraphs();
+  populateVoiceList();
+  applyReaderAppearance();
+}
+
+function clearPdfSearchHighlights(){
+  pdfViewer.querySelectorAll(".pdf-search-hit").forEach(el => el.remove());
+}
+
+function normalizeSearchText(s){
+  return String(s || "").normalize("NFKC").toLowerCase().replace(/[\u00ad\u200b\u200e\u200f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function ensurePdfVisible(){
+  if(!pdfVisible){
+    pdfVisible = true;
+    pdfPane.style.display = "";
+    workspace.classList.remove("pdf-hidden");
+    togglePdfBtn.textContent = "原PDFを隠す";
+  }
+}
+
+function runPdfSearch(){
+  const rawQ = pdfSearchInput.value.trim();
+  const q = normalizeSearchText(rawQ);
+  clearPdfSearchHighlights();
+  pdfSearchHits = [];
+  pdfSearchIndex = -1;
+  pdfSearchResults.innerHTML = "";
+  pdfSearchResults.hidden = true;
+  if(!q) return;
+
+  for(const pg of pdfSearchPages){
+    let full = "";
+    const spans = [];
+    for(const it of pg.items){
+      const t = normalizeSearchText(it.text);
+      if(!t) continue;
+      if(full) full += " ";
+      const start = full.length;
+      full += t;
+      spans.push({start, end:start+t.length, item:it});
+    }
+    let from = 0;
+    while(from <= full.length - q.length){
+      const idx = full.indexOf(q, from);
+      if(idx < 0) break;
+      const end = idx + q.length;
+      const matched = spans.filter(s => s.end > idx && s.start < end);
+      pdfSearchHits.push({ page: pg.page, matched });
+      from = idx + Math.max(1, q.length);
+    }
+  }
+
+  if(!pdfSearchHits.length){
+    pdfSearchCount.textContent = "0/0";
+    setStatus(`原PDF検索：「${rawQ}」は見つかりませんでした。`);
+    return;
+  }
+  ensurePdfVisible();
+  pdfSearchIndex = 0;
+  showPdfSearchHit(0);
+}
+
+function showPdfSearchHit(index){
+  if(!pdfSearchHits.length) return;
+  pdfSearchIndex = (index + pdfSearchHits.length) % pdfSearchHits.length;
+  clearPdfSearchHighlights();
+  const hit = pdfSearchHits[pdfSearchIndex];
+  pdfSearchCount.textContent = `${pdfSearchIndex + 1}/${pdfSearchHits.length}`;
+  const pageEl = pdfViewer.querySelector(`.pdf-page[data-page="${hit.page}"]`);
+  if(pageEl){
+    for(const m of hit.matched){
+      const it = m.item;
+      const el = document.createElement("div");
+      el.className = "pdf-search-hit active";
+      el.style.left = `${Math.max(0,it.x)}px`;
+      el.style.top = `${Math.max(0,it.y)}px`;
+      el.style.width = `${Math.max(5,it.w)}px`;
+      el.style.height = `${Math.max(6,it.h)}px`;
+      pageEl.appendChild(el);
+    }
+    const target = Math.max(0, pageEl.offsetTop - pdfViewer.clientHeight * 0.12);
+    pdfViewer.scrollTo({top:target, behavior:"smooth"});
+  }
+}
+
+pdfSearchInput.addEventListener("keydown", e => { if(e.key === "Enter") runPdfSearch(); });
+pdfSearchGo.onclick = runPdfSearch;
+pdfSearchNext.onclick = () => showPdfSearchHit(pdfSearchIndex + 1);
+pdfSearchPrev.onclick = () => showPdfSearchHit(pdfSearchIndex - 1);
+
+function jumpToPdfPage(page){
+  const el = pdfViewer.querySelector(`.pdf-page[data-page="${page}"]`);
+  if(el) el.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+function cleanSpeechText(text){
+  return String(text || "").replace(/\[(Table|Figure)\s*\d+\]/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function updateTtsControls(){
+  const has = !!cleanText.querySelector(".clean-content");
+  ttsPlayBtn.disabled = !has;
+  ttsPauseBtn.disabled = !has;
+  ttsStopBtn.disabled = !has;
+  ttsVoice.disabled = !has;
+  ttsRate.disabled = !has;
+}
+
+function populateVoiceList(){
+  const voices = speechSynthesis.getVoices() || [];
+  const list = voices.filter(v => /^en(-|_)/i.test(v.lang));
+  const prev = ttsSelectedVoiceURI || ttsVoice.value;
+  ttsVoice.innerHTML = "";
+  if(!list.length){
+    const opt = document.createElement("option"); opt.value = ""; opt.textContent = "既定の英語音声";
+    ttsVoice.appendChild(opt); return;
+  }
+  for(const v of list){
+    const opt = document.createElement("option"); opt.value = v.voiceURI; opt.textContent = `${v.name} (${v.lang})`;
+    if(v.voiceURI === prev) opt.selected = true;
+    ttsVoice.appendChild(opt);
+  }
+  if(!ttsVoice.value && list.length) ttsVoice.value = list[0].voiceURI;
+  ttsSelectedVoiceURI = ttsVoice.value;
+}
+
+function getSelectedVoice(){
+  const voices = speechSynthesis.getVoices() || [];
+  return voices.find(v => v.voiceURI === ttsVoice.value) || voices.find(v => /^en(-|_)/i.test(v.lang)) || null;
+}
+
+function clearTtsHighlight(){
+  cleanText.querySelectorAll(".tts-active").forEach(el => el.classList.remove("tts-active"));
+}
+
+function collectTtsParagraphs(){
+  // 変数名は互換性のため残すが，中身は「文」の一覧。
+  ttsParagraphs = Array.from(cleanText.querySelectorAll(".tts-sentence"));
+  ttsParagraphs.forEach((el, idx) => {
+    el.classList.add("tts-startable");
+    el.dataset.ttsIndex = String(idx);
+  });
+}
+
+function stopTts(msg = true){
+  ttsShouldRun = false;
+  ttsSessionId++;
+  ttsPaused = false;
+  try{ if(speechSynthesis.paused) speechSynthesis.resume(); speechSynthesis.cancel(); }catch(e){}
+  clearTtsHighlight();
+  ttsPlayBtn.textContent = "▶";
+  if(msg) setStatus("読み上げを停止しました。");
+}
+
+function startSpeechAt(pIdx){
+  if(!ttsShouldRun) return;
+  collectTtsParagraphs();
+  if(pIdx < 0 || pIdx >= ttsParagraphs.length){ stopTts(false); setStatus("読み上げが完了しました。"); return; }
+
+  const sentenceEl = ttsParagraphs[pIdx];
+  if(!sentenceEl){ startSpeechAt(pIdx + 1); return; }
+
+  const text = cleanSpeechText(sentenceEl.textContent || "");
+  if(!text){ startSpeechAt(pIdx + 1); return; }
+
+  ttsSessionId++;
+  const mySession = ttsSessionId;
+  ttsParagraphIndex = pIdx;
+  ttsPaused = false;
+  clearTtsHighlight();
+  sentenceEl.classList.add("tts-active");
+
+  const para = sentenceEl.closest(".clean-paragraph");
+  if(para) para.scrollIntoView({block:"center", behavior:"smooth"});
+
+  const u = new SpeechSynthesisUtterance(text);
+  const voice = getSelectedVoice();
+  if(voice) { u.voice = voice; u.lang = voice.lang || "en-US"; }
+  u.rate = parseFloat(ttsRate.value || "1");
+
+  u.onend = () => {
+    if(!ttsShouldRun || mySession !== ttsSessionId || ttsPaused) return;
+    startSpeechAt(pIdx + 1);
+  };
+  u.onerror = () => {
+    if(!ttsShouldRun || mySession !== ttsSessionId) return;
+    startSpeechAt(pIdx + 1);
+  };
+  ttsUtterance = u;
+  speechSynthesis.speak(u);
+}
+
+ttsPlayBtn.onclick = () => {
+  collectTtsParagraphs();
+  if(!ttsParagraphs.length) return;
+  if(speechSynthesis.paused){ ttsShouldRun = true; ttsPaused = false; speechSynthesis.resume(); ttsPlayBtn.textContent = "▶"; return; }
+  if(speechSynthesis.speaking) return;
+  ttsShouldRun = true;
+  startSpeechAt(ttsParagraphIndex || 0);
+};
+
+ttsPauseBtn.onclick = () => {
+  if(speechSynthesis.speaking && !speechSynthesis.paused){
+    ttsPaused = true;
+    speechSynthesis.pause();
+    ttsPlayBtn.textContent = "▶";
+    setStatus("読み上げを一時停止しました。");
+  } else if(speechSynthesis.paused){
+    ttsPaused = false;
+    speechSynthesis.resume();
+    ttsPlayBtn.textContent = "⏸";
+    setStatus("読み上げを再開しました。");
+  }
+};
+
+ttsStopBtn.onclick = () => stopTts(true);
+ttsVoice.onchange = () => { ttsSelectedVoiceURI = ttsVoice.value; };
+
+// 文をダブルクリックして，その文から音声再生
+cleanText.addEventListener("dblclick", e => {
+  const sentence = e.target.closest(".tts-sentence");
+  if(!sentence || e.target.closest("button, .page-tag, .paragraph-no")) return;
+  const pIdx = Number(sentence.dataset.ttsIndex);
+  if(!Number.isFinite(pIdx)) return;
+  stopTts(false);
+  ttsShouldRun = true;
+  startSpeechAt(pIdx);
+});
+
+// テキストの外の余白をクリックしたら一時停止
+cleanTextWrap.addEventListener("click", e => {
+  if(e.target === cleanTextWrap || e.target === cleanText){
+    if(speechSynthesis.speaking && !speechSynthesis.paused){
+      ttsPaused = true;
+      speechSynthesis.pause();
+      ttsPlayBtn.textContent = "▶";
+      setStatus("余白がクリックされたため，読み上げを一時停止しました。");
+    }
+  }
+});
+
+// テキスト選択ポップアップ機能
+function clampSelectionPopup(left, top, width = 330, height = 42){
+  const margin = 10;
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - height - margin);
+  return {
+    left: Math.min(Math.max(margin, left), maxLeft),
+    top: Math.min(Math.max(margin, top), maxTop)
+  };
+}
+
+function positionSelectionPopup(rect){
+  if(!rect) return;
+  const popupW = 300;
+  const popupH = 42;
+  let left = rect.left + rect.width / 2 - popupW / 2;
+  let top = rect.top - popupH - 8;
+
+  // 上に収まらなければ選択範囲の下へ
+  if(top < 8) top = rect.bottom + 8;
+
+  const pos = clampSelectionPopup(left, top, popupW, popupH);
+  selectionPopup.style.left = `${pos.left}px`;
+  selectionPopup.style.top = `${pos.top}px`;
+}
+
+document.addEventListener("selectionchange", () => {
+  clearTimeout(window.__selPopupTimer);
+  window.__selPopupTimer = setTimeout(() => {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim() || "";
+    const anchorEl = sel?.anchorNode?.nodeType === Node.ELEMENT_NODE ? sel.anchorNode : sel?.anchorNode?.parentElement;
+
+    if(text.length > 1 && anchorEl && cleanText.contains(anchorEl) && sel.rangeCount){
+      selectedTextGlobal = text;
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      selectedRangeRect = {
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        width: rect.width, height: rect.height
+      };
+      positionSelectionPopup(selectedRangeRect);
+      selectionPopup.style.display = "flex";
+      resultPanel.style.display = "none";
+    }else{
+      if(!selectionPopup.matches(":hover") && !resultPanel.matches(":hover")){
+        selectionPopup.style.display = "none";
+      }
+    }
+  }, 80);
+});
+
+window.addEventListener("scroll", () => {
+  if(selectionPopup.style.display === "flex" && selectedRangeRect){
+    const sel = window.getSelection();
+    if(sel && !sel.isCollapsed && sel.rangeCount){
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      selectedRangeRect = {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height};
+      positionSelectionPopup(selectedRangeRect);
+    }
+  }
+}, true);
+
+function showResult(title, content){
+  resultTitle.textContent = title;
+  resultBody.innerHTML = content;
+
+  const rect = selectedRangeRect;
+  const panelW = Math.min(420, window.innerWidth - 24);
+  const estimatedH = 220;
+  let left = rect ? (rect.left + rect.width / 2 - panelW / 2) : 12;
+  let top = rect ? (rect.bottom + 10) : 72;
+
+  // 下に収まらない場合は選択範囲の上へ
+  if(top + estimatedH > window.innerHeight - 10 && rect){
+    top = Math.max(10, rect.top - estimatedH - 10);
+  }
+
+  left = Math.min(Math.max(10, left), Math.max(10, window.innerWidth - panelW - 10));
+  top = Math.min(Math.max(10, top), Math.max(10, window.innerHeight - 120));
+
+  resultPanel.style.left = `${left}px`;
+  resultPanel.style.top = `${top}px`;
+  resultPanel.style.display = "block";
+  selectionPopup.style.display = "none";
+}
+
+function showLoading(title, label){
+  showResult(title, `<div class="result-loading">${escapeHtml(label)}…</div>`);
+}
+
+function getSelectedSingleWord(){
+  const t = normSpaces(selectedTextGlobal);
+  return /^[A-Za-z][A-Za-z'’\-]*$/.test(t) ? t : "";
+}
+
+async function lookupDictionaryInline(word){
+  const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("dictionary lookup failed");
+  const data = await res.json();
+  if(!Array.isArray(data) || !data.length) throw new Error("no dictionary result");
+
+  const entry = data[0];
+  const phonetic = entry.phonetic || (entry.phonetics || []).find(p => p.text)?.text || "";
+  const blocks = [];
+  for(const meaning of (entry.meanings || []).slice(0,4)){
+    const defs = (meaning.definitions || []).slice(0,3);
+    if(!defs.length) continue;
+    blocks.push(
+      `<div class="dict-pos">${escapeHtml(meaning.partOfSpeech || "")}</div>` +
+      defs.map((d,i)=>`<div class="dict-def">${i+1}. ${escapeHtml(d.definition || "")}</div>`).join("")
+    );
+  }
+
+  showResult("辞書", `
+    <div class="dict-word">${escapeHtml(entry.word || word)}</div>
+    ${phonetic ? `<div class="dict-phonetic">${escapeHtml(phonetic)}</div>` : ""}
+    ${blocks.join("") || "<div>定義を取得できませんでした。</div>"}
+    <div class="result-source">辞書データ。文脈上の意味は「学術日本語」で確認できます。</div>
+  `);
+}
+
+function buildInlinePrompt(mode, text){
+  if(mode === "academic-ja"){
+    return `Translate the following academic English passage into precise, natural academic Japanese.
+
+Strict requirements:
+- Preserve the original meaning exactly.
+- Preserve technical terms, conceptual distinctions, hedging, uncertainty, modality, and scope.
+- Do not add background knowledge, examples, causal explanations, or interpretation not present in the passage.
+- Translate technical terms using standard academic Japanese when confident; otherwise retain the English term in parentheses.
+- Keep terms such as may, might, often, some, many, suggest, appear, likely, potential, and similar qualifiers visible in the Japanese meaning.
+- Use Japanese punctuation 「，」「。」.
+- Output only the Japanese translation.
+
+Passage:
+${text}`;
+  }
+  if(mode === "simple-en"){
+    return `Rewrite the following academic passage in clear CEFR A2-B1 English.
+
+Strict requirements:
+- Preserve the meaning exactly.
+- Keep important academic and technical terms from the original.
+- Use short sentences and common everyday words where possible. Keep precise academic terms when they are important to the meaning.
+- Preserve distinctions, hedging, uncertainty, qualifications, and scope.
+- Do not add examples, background knowledge, interpretation, or causal claims.
+- If a technical term cannot be simplified safely, keep the original term.
+- Output only the rewritten Simple English.
+
+Passage:
+${text}`;
+  }
+  if(mode === "summary-ja"){
+    return `Explain the following academic passage briefly in Japanese.
+
+Strict requirements:
+- Use only information stated in the selected passage.
+- Preserve the main claim, subject, relationships, qualifications, and uncertainty.
+- Do not add outside knowledge or causal interpretation.
+- Write 2 to 4 concise sentences.
+- Use Japanese punctuation 「，」「。」.
+- Output only the brief explanation.
+
+Passage:
+${text}`;
+  }
+  if(mode === "term-ja"){
+    return `Explain the meaning of the selected academic English term or phrase in this passage context.
+
+Strict requirements:
+- Explain only what can be supported by the selected wording itself.
+- If context is insufficient to determine a specialized meaning, explicitly say that the context is insufficient.
+- Give: 1) concise Japanese meaning, 2) part of speech or phrase type if clear, 3) brief usage note.
+- Do not invent a paper-specific definition.
+- Use Japanese punctuation 「，」「。」.
+
+Selected term or phrase:
+${text}`;
+  }
+  return text;
+}
+
+async function getInlineAiSession(mode){
+  if(inlineAiSessions[mode]) return inlineAiSessions[mode];
+  if(!("LanguageModel" in window)) throw new Error("builtin-ai-unavailable");
+
+  const jaOutput = mode !== "simple-en";
+  const options = {
+    expectedInputs: [{type:"text", languages:["en","ja"]}],
+    expectedOutputs: [{type:"text", languages:[jaOutput ? "ja" : "en"]}]
+  };
+
+  const availability = await LanguageModel.availability(options);
+  if(availability === "unavailable") throw new Error("builtin-ai-unavailable");
+
+  const session = await LanguageModel.create({
+    ...options,
+    monitor(m){
+      m.addEventListener("downloadprogress", e => {
+        const pct = Math.round((e.loaded || 0) * 100);
+        if(Number.isFinite(pct)) setStatus(`Chrome内蔵AIを準備中… ${pct}%`);
+      });
+    }
+  });
+  inlineAiSessions[mode] = session;
+  return session;
+}
+
+function fallbackPromptHtml(mode, text){
+  const prompt = buildInlinePrompt(mode, text);
+  const safe = escapeHtml(prompt);
+  return `
+    <div>このブラウザではChrome内蔵AIを利用できません。</div>
+    <div class="fallback-actions">
+      <button id="fallbackCopyPrompt" class="primary">プロンプトをコピー</button>
+      <button id="fallbackOpenChatGPT">ChatGPTを開く</button>
+    </div>
+    <textarea id="fallbackPromptText" style="display:none">${safe}</textarea>
+  `;
+}
+
+function wireFallback(mode, text){
+  const prompt = buildInlinePrompt(mode, text);
+  const copy = document.getElementById("fallbackCopyPrompt");
+  const open = document.getElementById("fallbackOpenChatGPT");
+  if(copy) copy.onclick = async () => {
+    await navigator.clipboard.writeText(prompt);
+    setStatus("選択範囲のプロンプトをコピーしました。");
+  };
+  if(open) open.onclick = async () => {
+    try{ await navigator.clipboard.writeText(prompt); }catch(e){}
+    window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+  };
+}
+
+
+async function tryChromeTranslator(text){
+  if(!("Translator" in window)) throw new Error("translator-api-unavailable");
+
+  const opts = { sourceLanguage: "en", targetLanguage: "ja" };
+  const availability = await Translator.availability(opts);
+  if(availability === "unavailable") throw new Error("translator-api-unavailable");
+
+  const translator = await Translator.create({
+    ...opts,
+    monitor(m){
+      m.addEventListener("downloadprogress", e => {
+        const pct = Math.round((e.loaded || 0) * 100);
+        if(Number.isFinite(pct)) setStatus(`翻訳モデルを準備中… ${pct}%`);
+      });
+    }
+  });
+  return await translator.translate(text);
+}
+
+async function tryMyMemoryTranslate(text){
+  // 短い選択範囲向け。長文は外部サービスの制限を避けて分割する。
+  const maxChunk = 430;
+  const chunks = [];
+  let rest = text.trim();
+
+  while(rest){
+    if(rest.length <= maxChunk){
+      chunks.push(rest);
+      break;
+    }
+    let cut = rest.lastIndexOf(". ", maxChunk);
+    if(cut < 120) cut = rest.lastIndexOf("; ", maxChunk);
+    if(cut < 120) cut = rest.lastIndexOf(", ", maxChunk);
+    if(cut < 120) cut = maxChunk;
+    else cut += 1;
+    chunks.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+
+  const translated = [];
+  for(const chunk of chunks){
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|ja`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("external-translation-failed");
+    const data = await res.json();
+    const t = data?.responseData?.translatedText;
+    if(!t) throw new Error("external-translation-empty");
+    translated.push(t);
+  }
+  return translated.join(" ");
+}
+
+function conservativeSimpleEnglish(text){
+  // 生成AIが使えない場合のA2-B1寄りSimple English。
+  // 重要な専門用語・主張・hedgingは保持し，
+  // それ以外の学術的な語彙・名詞化・冗長表現をより日常的な英語へ変える。
+  let src = normSpaces(text);
+  if(!src) return "";
+
+  const phraseRules = [
+    [/\bDistinguishing between (.+?) sheds new light on (.+?)([.!?]|$)/gi,
+      (m, a, b, p) => `Seeing the difference between ${a.trim()} helps us understand ${b.trim()} better${p || "."}`],
+    [/\bDistinguishing between\b/gi, "Seeing the difference between"],
+    [/\bsheds new light on\b/gi, "helps us understand"],
+    [/\bprovides new insight into\b/gi, "helps us understand"],
+    [/\bprovide new insight into\b/gi, "help us understand"],
+    [/\bcontributes to our understanding of\b/gi, "helps us understand"],
+    [/\bfacilitates an understanding of\b/gi, "helps us understand"],
+    [/\bplays an important role in\b/gi, "is important for"],
+    [/\bplays a key role in\b/gi, "is important for"],
+    [/\bis characterized by\b/gi, "has"],
+    [/\bare characterized by\b/gi, "have"],
+    [/\bin the absence of\b/gi, "without"],
+    [/\bin the presence of\b/gi, "with"],
+    [/\bwith the exception of\b/gi, "except for"],
+    [/\bas a consequence of\b/gi, "because of"],
+    [/\bas a result of\b/gi, "because of"],
+    [/\bWe conclude with a discussion (?:on|of) the implications? of\b/gi, "Finally, we discuss what"],
+    [/\bWe conclude with a discussion (?:on|of)\b/gi, "Finally, we discuss"],
+    [/\bThe purpose of this study is to\b/gi, "This study aims to"],
+    [/\bThe aim of this study is to\b/gi, "This study aims to"],
+    [/\bThe objective of this study is to\b/gi, "This study aims to"],
+    [/\bThe present study aims to\b/gi, "This study aims to"],
+    [/\bThe present study\b/gi, "This study"],
+    [/\bThe results of this study suggest that\b/gi, "This study suggests that"],
+    [/\bThe findings of this study suggest that\b/gi, "This study suggests that"],
+    [/\bThe results indicate that\b/gi, "The results show that"],
+    [/\bThe findings indicate that\b/gi, "The findings show that"],
+    [/\bThe results demonstrate that\b/gi, "The results show that"],
+    [/\bThe findings demonstrate that\b/gi, "The findings show that"],
+    [/\bIt is important to note that\b/gi, "Importantly,"],
+    [/\bIt should be noted that\b/gi, "Note that"],
+    [/\bIt is worth noting that\b/gi, "It is useful to note that"],
+    [/\bIt is possible that\b/gi, "It may be that"],
+    [/\bThere is a possibility that\b/gi, "It is possible that"],
+    [/\bThere is evidence to suggest that\b/gi, "Evidence suggests that"],
+    [/\bThere is a need for\b/gi, "We need"],
+    [/\bThere is a lack of\b/gi, "There is not enough"],
+    [/\bwith regard to\b/gi, "about"],
+    [/\bwith respect to\b/gi, "about"],
+    [/\bin relation to\b/gi, "about"],
+    [/\bin terms of\b/gi, "for"],
+    [/\bin the context of\b/gi, "in"],
+    [/\bdue to the fact that\b/gi, "because"],
+    [/\bowing to the fact that\b/gi, "because"],
+    [/\bin order to\b/gi, "to"],
+    [/\bfor the purpose of\b/gi, "to"],
+    [/\bhas the potential to\b/gi, "may"],
+    [/\bhave the potential to\b/gi, "may"],
+    [/\bwere found to be\b/gi, "were"],
+    [/\bwas found to be\b/gi, "was"],
+    [/\bcan be seen as\b/gi, "can be seen as"],
+    [/\bcan be considered as\b/gi, "can be seen as"],
+    [/\ba large number of\b/gi, "many"],
+    [/\ba small number of\b/gi, "a few"],
+    [/\bthe majority of\b/gi, "most"],
+    [/\ba considerable number of\b/gi, "many"],
+    [/\bthe implication of\b/gi, "what"],
+    [/\bthe implications of\b/gi, "what"],
+    [/\butilize\b/gi, "use"],
+    [/\butilized\b/gi, "used"],
+    [/\butilization\b/gi, "use"],
+    [/\bcommence\b/gi, "start"],
+    [/\bcommenced\b/gi, "started"],
+    [/\bterminate\b/gi, "end"],
+    [/\bsubsequently\b/gi, "later"],
+    [/\bprior to\b/gi, "before"],
+    [/\bfollowing\b(?=\s+(the|a|an|this|that|these|those)\b)/gi, "after"],
+    [/\bapproximately\b/gi, "about"],
+    [/\bfrequently\b/gi, "often"],
+    [/\bnumerous\b/gi, "many"],
+    [/\bsufficient\b/gi, "enough"],
+    [/\bobtain\b/gi, "get"],
+    [/\bobtained\b/gi, "got"],
+    [/\bassist\b/gi, "help"],
+    [/\bassisted\b/gi, "helped"],
+    [/\bprovide assistance\b/gi, "help"],
+    [/\bmake use of\b/gi, "use"],
+    [/\bconduct an analysis of\b/gi, "analyze"],
+    [/\bconducted an analysis of\b/gi, "analyzed"],
+    [/\bcarry out an analysis of\b/gi, "analyze"],
+    [/\bcarried out an analysis of\b/gi, "analyzed"],
+    [/\bmake a comparison between\b/gi, "compare"],
+    [/\bmade a comparison between\b/gi, "compared"],
+    [/\bgive consideration to\b/gi, "consider"],
+    [/\btake into consideration\b/gi, "consider"],
+    [/\bhas an influence on\b/gi, "affects"],
+    [/\bhave an influence on\b/gi, "affect"],
+    [/\bhas an effect on\b/gi, "affects"],
+    [/\bhave an effect on\b/gi, "affect"],
+    [/\bparticipate in\b/gi, "take part in"],
+    [/\bparticipants\b/gi, "participants"],
+    [/\bindividuals\b/gi, "people"],
+    [/\bpersons\b/gi, "people"],
+    [/\bcommonly\b/gi, "often"],
+    [/\bparticularly\b/gi, "especially"],
+    [/\bprimarily\b/gi, "mainly"],
+    [/\badditional\b/gi, "more"],
+    [/\bvarious\b/gi, "different"],
+    [/\bsignificant\b/gi, "important"],
+    [/\bsubstantial\b/gi, "large"],
+    [/\bperceive\b/gi, "see"],
+    [/\bperceived\b/gi, "saw"],
+    [/\bregarding\b/gi, "about"],
+    [/\btherefore\b/gi, "so"],
+    [/\bhowever\b/gi, "but"],
+  ];
+
+  for(const [pattern, replacement] of phraseRules){
+    src = src.replace(pattern, replacement);
+  }
+
+  // 名詞化を動詞に戻す
+  const nominalRules = [
+    [/\bthe identification of\b/gi, "identifying"],
+    [/\bthe examination of\b/gi, "examining"],
+    [/\bthe investigation of\b/gi, "investigating"],
+    [/\bthe analysis of\b/gi, "analyzing"],
+    [/\bthe comparison of\b/gi, "comparing"],
+    [/\bthe use of\b/gi, "using"],
+    [/\bthe provision of\b/gi, "providing"],
+    [/\bthe development of\b/gi, "developing"],
+    [/\bthe discussion of\b/gi, "discussing"],
+    [/\bthe description of\b/gi, "describing"],
+  ];
+  for(const [pattern, replacement] of nominalRules){
+    src = src.replace(pattern, replacement);
+  }
+
+  // "what X for Y" -> "what X means for Y"
+  src = src.replace(/\bwhat\s+([^.!?]{2,90}?)\s+for\s+([^.!?]+)([.!?])/gi, (m, a, b, p) => {
+    if(/\bmeans?\b/i.test(a)) return m;
+    return `what ${a.trim()} mean for ${b.trim()}${p}`;
+  });
+
+  // 文を短くする
+  const sentences = src.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [src];
+  const out = [];
+
+  for(const raw of sentences){
+    let sentence = normSpaces(raw);
+    if(!sentence) continue;
+
+    const wc = sentence.split(/\s+/).length;
+
+    if(wc > 22){
+      let parts = sentence.split(/\s*;\s*|\s*:\s*/).filter(Boolean);
+      const refined = [];
+
+      for(const part of parts){
+        const p = normSpaces(part);
+        if(p.split(/\s+/).length <= 18){
+          refined.push(p);
+          continue;
+        }
+
+        // よくある接続語の前で短くする
+        const m = p.match(/^(.{28,}?)\s+(because|although|whereas|while|but|so|however|therefore)\s+(.+)$/i);
+        if(m){
+          refined.push(m[1].trim() + ".");
+          refined.push((m[2] + " " + m[3]).trim());
+        }else{
+          refined.push(p);
+        }
+      }
+
+      for(let part of refined){
+        part = normSpaces(part);
+        if(!part) continue;
+        if(!/[.!?]$/.test(part)) part += ".";
+        out.push(part.charAt(0).toUpperCase() + part.slice(1));
+      }
+    }else{
+      if(!/[.!?]$/.test(sentence)) sentence += ".";
+      out.push(sentence.charAt(0).toUpperCase() + sentence.slice(1));
+    }
+  }
+
+  let result = out.join(" ")
+    .replace(/\s+,/g, ",")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  result = result
+    .replace(/\bThis study aims to to\b/gi, "This study aims to")
+    .replace(/\bto to\b/gi, "to")
+    .replace(/\bSo but\b/gi, "But")
+    .replace(/\bBut so\b/gi, "So");
+
+  return result;
+}
+
+async function showAcademicJapaneseWithFallback(){
+  const text = normSpaces(selectedTextGlobal);
+  if(!text) return;
+
+  showLoading("学術日本語", "正確な学術日本語を確認しています");
+
+  // 1. Chrome内蔵AI
+  try{
+    const session = await getInlineAiSession("academic-ja");
+    const answer = await session.prompt(buildInlinePrompt("academic-ja", text));
+    showResult("学術日本語",
+      `<div class="result-source-badge">Chrome内蔵AI</div>
+       <div class="result-text">${escapeHtml(answer)}</div>
+       <div class="result-source">専門用語・限定表現・不確実性を保持する指示で生成。</div>`);
+    return;
+  }catch(e){}
+
+  // 2. Chrome Translator API
+  try{
+    const answer = await tryChromeTranslator(text);
+    showResult("学術日本語",
+      `<div class="result-source-badge">Chrome翻訳</div>
+       <div class="result-text">${escapeHtml(answer)}</div>
+       <div class="result-warning">これは翻訳モデルによる訳です。専門用語の文脈依存の意味は原文と併せて確認してください。</div>`);
+    return;
+  }catch(e){}
+
+  // 3. 外部翻訳API
+  try{
+    const answer = await tryMyMemoryTranslate(text);
+    showResult("学術日本語",
+      `<div class="result-source-badge">オンライン翻訳</div>
+       <div class="result-text">${escapeHtml(answer)}</div>
+       <div class="result-warning">内蔵AIが使えないため，外部翻訳へ自動切替しました。専門用語やhedgingは原文と併せて確認してください。</div>`);
+    return;
+  }catch(e){}
+
+  // 4. 最後のフォールバック
+  showResult("学術日本語", fallbackPromptHtml("academic-ja", text));
+  wireFallback("academic-ja", text);
+}
+
+async function showSimpleEnglishWithFallback(){
+  const text = normSpaces(selectedTextGlobal);
+  if(!text) return;
+
+  showLoading("Simple English", "意味を保って簡潔化しています");
+
+  // 1. Chrome内蔵AI
+  try{
+    const session = await getInlineAiSession("simple-en");
+    const answer = await session.prompt(buildInlinePrompt("simple-en", text));
+    showResult("Simple English",
+      `<div class="result-source-badge">Chrome内蔵AI</div>
+       <div class="result-text">${escapeHtml(answer)}</div>
+       <div class="result-source">専門語を保持し，文法・節構造・文長を主に簡潔化。</div>`);
+    return;
+  }catch(e){}
+
+  // 2. ローカル安全フォールバック
+  const answer = conservativeSimpleEnglish(text);
+  showResult("Simple English",
+    `<div class="result-source-badge">ローカル簡略化</div>
+     <div class="result-text">${escapeHtml(answer)}</div>
+     <div class="result-warning">生成AIが使えないため，学術英語の定型表現・名詞化・難しい一般語・長い節構造をルールベースでA2〜B1程度へ簡潔化しています。研究上重要な専門用語・限定表現はできるだけ保持します。</div>`);
+}
+
+async function runInlineAi(mode, title, loadingLabel){
+  const text = normSpaces(selectedTextGlobal);
+  if(!text) return;
+  if(inlineAiBusy) return;
+
+  inlineAiBusy = true;
+  showLoading(title, loadingLabel);
+
+  try{
+    const session = await getInlineAiSession(mode);
+    const answer = await session.prompt(buildInlinePrompt(mode, text));
+    showResult(title, `<div class="result-text">${escapeHtml(answer)}</div><div class="result-source">Chrome built-in AI（Gemini Nano）による選択範囲限定の生成。原文の限定・不確実性を保持するよう指示しています。</div>`);
+  }catch(err){
+    showResult(title, fallbackPromptHtml(mode, text));
+    wireFallback(mode, text);
+  }finally{
+    inlineAiBusy = false;
+  }
+}
+
+popDict.onclick = async () => {
+  const word = getSelectedSingleWord();
+  if(word){
+    showLoading("辞書", "辞書を検索しています");
+    try{
+      await lookupDictionaryInline(word);
+    }catch(err){
+      try{
+        const session = await getInlineAiSession("term-ja");
+        const answer = await session.prompt(buildInlinePrompt("term-ja", word));
+        showResult("辞書・用語解説",
+          `<div class="result-source-badge">Chrome内蔵AI</div><div class="result-text">${escapeHtml(answer)}</div>`);
+      }catch(e){
+        const q = encodeURIComponent(word);
+        showResult("辞書", `
+          <div class="dict-word">${escapeHtml(word)}</div>
+          <div>辞書データをその場で取得できませんでした。下の辞書を直接開けます。</div>
+          <div class="dict-links">
+            <a href="https://dictionary.cambridge.org/dictionary/english/${q}" target="_blank" rel="noopener noreferrer">Cambridge</a>
+            <a href="https://www.merriam-webster.com/dictionary/${q}" target="_blank" rel="noopener noreferrer">Merriam-Webster</a>
+          </div>
+        `);
+      }
+    }
+  }else{
+    try{
+      const session = await getInlineAiSession("term-ja");
+      const answer = await session.prompt(buildInlinePrompt("term-ja", selectedTextGlobal));
+      showResult("辞書・用語解説",
+        `<div class="result-source-badge">Chrome内蔵AI</div><div class="result-text">${escapeHtml(answer)}</div>`);
+    }catch(e){
+      showResult("辞書",
+        `<div class="result-text">辞書は1語を選択すると最も正確に確認できます。複数語や文の場合は「学術日本語」または「Simple English」を使ってください。</div>`);
+    }
+  }
+};
+
+popAcad.onclick = () => showAcademicJapaneseWithFallback();
+popSimple.onclick = () => showSimpleEnglishWithFallback();
+
+
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape"){
+    selectionPopup.style.display = "none";
+    resultPanel.style.display = "none";
+  }
+});
+
+document.addEventListener("mousedown", e => {
+  if(selectionPopup.style.display !== "none" || resultPanel.style.display !== "none"){
+    if(!selectionPopup.contains(e.target) && !resultPanel.contains(e.target) && !cleanText.contains(e.target)){
+      selectionPopup.style.display = "none";
+      resultPanel.style.display = "none";
+    }
+  }
+});
+
+closeResult.onclick = () => {
+  resultPanel.style.display = "none";
+};
+
+populateVoiceList();
+updateTtsControls();
+applyReaderAppearance();
+if("onvoiceschanged" in speechSynthesis) speechSynthesis.onvoiceschanged = populateVoiceList;
+
+async function runPaperDeepAnalysis(){
+  if(!cleanPlainText){ setStatus("先にPDFを読み込んでください。"); return; }
+  const prompt = `以下は学術論文から整形した本文全文です。
+この論文だけを根拠に，「論文全体・バリア詳細分析」を行ってください。
+
+【重要な分析方針】
+- 外部知識を使わず，本文に忠実に分析する。
+- 研究対象者本人が経験する困難，制約，葛藤，孤立，不確実性，情報アクセス上の問題，質問形成の難しさ，支援要請の難しさ，社会的・関係的バリア，制度・サービス上の問題，心理的・感情的困難などを抽出する。
+- 著者の分析，結果, 考察，参加者の引用や状況説明を文脈として読む。
+- 日本語の句読点は「，」「。」を使う。
+
+【出力構成】
+1. 研究目的・対象の要点
+2. 主要なバリア（内容，対象者・状況，本文での現れ方，情報行動との関係，本文根拠）
+3. バリア同士の関係
+4. 論文全体からみた特徴
+5. 本文だけでは判断できない点
+
+【論文本文】
+<PAPER>
+${cleanPlainText}
+</PAPER>`;
+
+  try{
+    await navigator.clipboard.writeText(prompt);
+    setStatus(`ChatGPT分析用テキストをコピーしました（本文約${cleanPlainText.length.toLocaleString()}文字）。`);
+  }catch(err){
+    const ta = document.createElement("textarea");
+    ta.value = prompt; ta.style.position = "fixed"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand("copy"); setStatus(`ChatGPT分析用テキストをコピーしました。`); }catch(e){}
+    ta.remove();
+  }
+}
+
+analyzePaperBtn.onclick = runPaperDeepAnalysis;
+openBtn.onclick = () => fileInput.click();
+fileInput.onchange = () => { if(fileInput.files[0]) loadPdf(fileInput.files[0]); };
+
+["dragenter","dragover"].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); }));
+pdfViewer.addEventListener("drop", e => {
+  e.preventDefault();
+  const f = [...e.dataTransfer.files].find(x => x.type === "application/pdf" || /\.pdf$/i.test(x.name));
+  if(f) loadPdf(f);
+});
+
+togglePdfBtn.onclick = () => {
+  pdfVisible = !pdfVisible;
+  if(pdfVisible){
+    pdfPane.style.display = "flex";
+    workspace.style.gridTemplateColumns = "minmax(430px,1.05fr) minmax(470px,.95fr)";
+    togglePdfBtn.textContent = "原PDFを隠す";
+  } else {
+    pdfPane.style.display = "none";
+    workspace.style.gridTemplateColumns = "1fr";
+    togglePdfBtn.textContent = "原PDFを表示";
+  }
+};
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c])); }
+</script>
+</body>
+</html>
